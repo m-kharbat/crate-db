@@ -1,0 +1,8 @@
+name: crate-db
+home: https://crate.io
+version: 0.1.0
+appVersion: 2.2.4
+description: CrateDB is a distributed SQL database that makes it simple to store and analyze massive amounts of machine data in real-time.
+icon: https://github.com/crate/crate/raw/master/blackbox/docs/_static/crate-logo.png
+sources:
+- https://github.com/crate/crate

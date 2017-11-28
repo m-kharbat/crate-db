@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: crate-discovery
+  labels:
+    app: {{ .Values.Name }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: crate
+  ports:
+  # crate-web port
+  - port: {{ .Values.CrateWebPort }}
+    name: crate-web
+  # crate cluster port 
+  - port: {{ .Values.CrateClusterPort }}
+    name: cluster
+  # crate postgres port
+  - port: {{ .Values.CratePostegresPort }}
+    name: postgres
+  # crate mqtt port
+  - port: {{ .Values.CrateMQTTPort }}
+    name: mqtt
+  # crate jmx 
+  - port: {{ .Values.CrateJMXPort }}
+    name: jmx
+---
+apiVersion: "apps/v1beta1"
+kind: StatefulSet
+metadata:
+  name: {{ .Values.Name }}
+spec:
+  serviceName: {{ .Values.ServiceName }}
+  replicas: {{ default 3 .Values.Replicas}}
+  template:
+    metadata:
+      labels:
+        app: crate
+      annotations:
+        pod.alpha.kubernetes.io/initialized: "true"
+    spec:
+      initContainers:
+      - name: init-sysctl
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["sysctl", "-w", "vm.max_map_count=262144"]
+        securityContext:
+          privileged: true
+      - name: wget-jmx-jar
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command:
+        - wget
+        - "-O"
+        - "/jmxdir/jmx_prometheus_javaagent-0.9.jar"
+        - https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.9/jmx_prometheus_javaagent-0.9.jar
+        volumeMounts:
+          - mountPath: /jmxdir
+            name: jmxdir
+      containers:
+      - name: {{ .Values.Name }}
+        image: "{{ .Values.Image }}:{{ .Values.ImageTag }}"
+        imagePullPolicy: "{{ .Values.imagePullPolicy }}"
+        command:
+          - /docker-entrypoint.sh
+          - -Ccluster.name=${NAMESPACE}
+          - -Cdiscovery.zen.minimum_master_nodes=2
+          - -Cdiscovery.zen.hosts_provider=srv
+          - -Cdiscovery.srv.query=_cluster._tcp.crate-discovery.${NAMESPACE}.svc.cluster.local
+          - -Cgateway.recover_after_nodes=2
+          - -Cgateway.expected_nodes=${EXPECTED_NODES}
+          - -Cnode.max_local_storage_nodes=${MAX_LOCAL_STORAGE_NODES}
+          - -Cpath.data=/data/${NAMESPACE}
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume
+          - mountPath: /etc/prometheus/jmx_crate.yml
+            name: crate-jmx
+            subPath: jmx_crate.yml
+          - mountPath: /var/lib/prometheus/jmx_prometheus_javaagent-0.9.jar
+            name: jmxdir
+            subPath: jmx_prometheus_javaagent-0.9.jar
+        resources:
+          limits:
+            memory: 1Gi
+        ports:
+          - containerPort: {{ .Values.CrateWebPort}}
+            name: db
+          - containerPort: {{ .Values.CrateClusterPort }}
+            name: cluster
+          - containerPort: {{ .Values.CratePostegresPort }}
+            name: postgres
+          - containerPort: {{ .Values.CrateMQTTPort }}
+            name: mqtt
+          - containerPort: {{ .Values.CrateJMXPort }}
+            name: jmx
+        env:
+          # Half the available memory.
+          - name: CRATE_HEAP_SIZE
+            value: "{{ .Values.CrateHeapSize }}"
+          - name: CRATE_JAVA_OPTS
+            value: -Dcom.sun.management.jmxremote.port=6666
+              -Dcom.sun.management.jmxremote.ssl=false
+              -Dcom.sun.management.jmxremote.authenticate=false
+              -javaagent:/var/lib/prometheus/jmx_prometheus_javaagent-0.9.jar=7071:/etc/prometheus/jmx_crate.yml
+              -XX:+HeapDumpOnOutOfMemoryError
+              -XX:HeapDumpPath=/opt/crate/heapdump
+          - name: EXPECTED_NODES
+            value: "{{ default 3 .Values.Replicas }}"
+          # TODO: This shouldn't be as high.
+          - name: MAX_LOCAL_STORAGE_NODES
+            value: "{{ .Values.MaxLocalStorage }}"
+          - name: ORGANIZATION_ID
+            value: {{ .Values.OrganizationID }}
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          # Namespace is received from pods current namespace.
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+      imagePullSecrets:
+      - name: regsecret
+      volumes:
+        - name: data-volume
+          hostPath:
+            path: /mnt/kubernetes
+        - name: crate-jmx
+          configMap:
+            name: crate-jmx-conf
+        - name: jmxdir
+          emptyDir: {}

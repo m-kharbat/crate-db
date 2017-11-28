@@ -1,0 +1,14 @@
+CrateWebPort: 4200
+CrateClusterPort: 4300
+CratePostegresPort: 5432
+CrateMQTTPort: 1883
+CrateJMXPort: 7071
+Name: "crate"
+ServiceName: "crate-db"
+Image: "crate/crate"
+ImageTag: "v2.1.0"
+ImagePullPolicy: "Always"
+Replicas: 3
+CrateHeapSize: "500m"
+MaxLocalStorage: "10"
+OrganizationID: "demo-tenant"
