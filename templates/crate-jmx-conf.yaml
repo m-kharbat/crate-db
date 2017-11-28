@@ -1,0 +1,25 @@
+apiVersion: v1
+data:
+  jmx_crate.yml: |
+    whitelistObjectNames:
+      - "io.crate.monitoring:*"
+    rules:
+      - pattern: ^io.crate.monitoring<type=QueryStats><>(.+)QueryAverageDuration
+        name: crate_query_duration_seconds
+        valueFactor: 0.001
+        labels:
+          query: $1
+        help: The average query duration for a given query type.
+      - pattern: ^io.crate.monitoring<type=QueryStats><>(.+)QueryFrequency
+        name: crate_queries
+        labels:
+          query: $1
+        help: Queries per second for a given query type.
+kind: ConfigMap
+metadata:
+  creationTimestamp: 2017-11-22T14:34:47Z
+  name: crate-jmx-conf
+  namespace: default
+  resourceVersion: "2565857"
+  selfLink: /api/v1/namespaces/default/configmaps/crate-jmx-conf
+  uid: a650d83c5-9868-4893-8db1-d0a0450d7e47
