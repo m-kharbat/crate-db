@@ -6,7 +6,7 @@ CrateJMXPort: 7071
 Name: "crate"
 ServiceName: "crate-db"
 Image: "crate/crate"
-ImageTag: "2.1.9"
+ImageTag: "2.2.4"
 ImagePullPolicy: "Always"
 Replicas: 3
 CrateHeapSize: "500m"

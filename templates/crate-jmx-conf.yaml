@@ -19,7 +19,7 @@ kind: ConfigMap
 metadata:
   creationTimestamp: 2017-11-22T14:34:47Z
   name: crate-jmx-conf
-  namespace: meriam
+  namespace: {{ .Release.Namespace }}
   resourceVersion: "2565857"
-  selfLink: /api/v1/namespaces/meriam/configmaps/crate-jmx-conf
+  selfLink: "{{ printf "/api/v1/namespaces/%s/configmaps/crate-jmx-conf" .Release.Namespace }}"
   uid: a650d83c5-9868-4893-8db1-d0a0450d7e47
